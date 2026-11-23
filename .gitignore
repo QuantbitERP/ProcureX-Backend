@@ -53,3 +53,8 @@ jspm_packages/
 
 # Aider AI Chat
 .aider*
+
+# Bundled React build outputs; source and the npm lockfile are tracked.
+.frontend-build.lock
+procurex/public/ui/
+procurex/public/node_modules

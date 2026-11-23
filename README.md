@@ -1,40 +1,112 @@
-### ProcureX
+# ProcureX
 
-ProcureX
+One Frappe v16 app containing the procurement backend and the React UI.
+Install **only `procurex`**. No wrapper app, frontend repository clone, PM2,
+Next.js server, Nitro server, separate port, or proxy configuration is needed.
 
-### Installation
+## Layout
 
-You can install this app using the [bench](https://github.com/frappe/bench) CLI:
-
-```bash
-cd $PATH_TO_YOUR_BENCH
-bench get-app $URL_OF_THIS_REPO --branch version-16
-bench install-app procurex
+```text
+procurex/
+  procurex/
+    api.py                  # existing procurex.api.* endpoints
+    procurex/doctype/       # existing procurement DocTypes
+    build.py                # automatic frontend build and publish
+    renderer.py             # Frappe renderer for /procurex/*
+    public/ui/              # generated static UI
+  frontend/
+    src/                    # React pages and components, versioned in this repo
+    public/
+    vite.config.ts
+    package.json
+    package-lock.json
+  package.json              # normal Bench dependency/build commands
+  yarn.lock
+  pyproject.toml
 ```
 
-### Contributing
+## Install on a Bench
 
-This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:
+Use a Frappe v16 bench with ERPNext installed, Python 3.14+, and its supported
+Node 24+ / npm / Yarn toolchain. Node is used to compile assets, not to serve
+ProcureX in production. No developer-specific Node path is required.
 
 ```bash
-cd apps/procurex
-pre-commit install
+bench get-app <repository-containing-this-consolidated-app> --branch version-16
+bench --site <site> install-app procurex
 ```
 
-Pre-commit is configured to use the following tools for checking and formatting your code:
+Open `https://<site>/procurex`. ProcureX also appears on the Frappe apps screen.
+`bench get-app` installs the frontend dependencies and builds the UI through the
+normal asset build. `after_install` ensures the UI is available if assets were
+skipped earlier. Build errors fail visibly rather than reporting a successful
+install with a missing UI.
 
-- ruff
-- eslint
-- prettier
-- pyupgrade
-### CI
+```bash
+# After updating the app, the normal Bench build publishes the updated UI.
+bench build --app procurex
+```
 
-This app can use GitHub Actions for CI. The following workflows are configured:
+`after_migrate` also checks the bundled UI. An unchanged, complete build is
+reused without running npm, requiring Node at runtime, or writing app files.
+Builds on the same bench share a lock. Assets are published before the shell,
+and old hashed chunks remain available to already-open browser sessions.
 
-- CI: Installs this app and runs unit tests on every push to `develop` branch.
-- Linters: Runs [Frappe Semgrep Rules](https://github.com/frappe/semgrep-rules) and [pip-audit](https://pypi.org/project/pip-audit/) on every pull request.
+## Frappe Cloud
 
+Publish this consolidated repository/branch, add **procurex** to a compatible
+Frappe v16 custom-app bench with ERPNext, deploy it, and install it on the site.
+Do not add `procurex_bundle` or the old standalone React repository.
 
-### License
+The root `package.json` installs the nested frontend dependencies with `npm ci`
+(including build-time dev dependencies). Its build script produces static UI
+assets in the normal Bench/Cloud asset stage. The site then serves `/procurex`
+through Frappe, using the same-origin `/api` endpoints, session cookie and CSRF
+token. No extra web process is created.
 
-mit
+The structure follows Frappe Cloud's documented nested frontend
+[dependency installation pattern](https://docs.frappe.io/cloud/common-issues/vite-not-found)
+and Frappe's [build and install hooks](https://docs.frappe.io/framework/user/en/python-api/hooks).
+The build and site lifecycle have been tested locally; a Frappe Cloud deployment
+must use the published consolidated code and has not been performed here.
+
+## Existing installations using the wrapper
+
+The backend app name, API paths, DocTypes and existing procurement records remain
+`procurex`. Build the consolidated app first. Back up the site, then preview
+removing the empty wrapper:
+
+```bash
+bench build --app procurex
+bench --site <site> backup --with-files
+bench --site <site> uninstall-app procurex_bundle --dry-run
+```
+
+Verify that only the wrapper's empty module is listed. Uninstall **only** the
+wrapper, then clear cache:
+
+```bash
+bench --site <site> uninstall-app procurex_bundle --yes
+bench --site <site> clear-cache
+```
+
+Once no site uses the wrapper, its old source can be archived outside `apps/`.
+Do not uninstall `procurex`; it owns the procurement data.
+
+## Existing integrations
+
+The UI and business APIs are preserved. Some Project/Finance pages call the
+separate `quantbit_construction_management` app or existing external services.
+Consolidation does not supply those independent integrations.
+
+## Checks
+
+```bash
+./env/bin/python -m unittest procurex.tests.test_ui_build
+```
+
+Run from the bench root. The UI lifecycle tests do not use a database.
+
+## License
+
+MIT. See `license.txt`.
